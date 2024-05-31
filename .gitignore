@@ -11,7 +11,8 @@
 # Do not ignore source, config and plugins dirs.
 !/Source/**
 !/Config/**
-!/Plugins/PaperHero/**
+!/Content/Blueprints/**
+!/Content/Assets/LiteAssets/**
 
 # Allow any files from /RawContent dir.
 # Any file in /RawContent dir will be managed by git lfs.
