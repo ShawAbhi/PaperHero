@@ -33,4 +33,5 @@ Thumbs.db
 /Plugins/**/Binaries/
 !Plugins/GameLiftPlugin/Source/**/Binaries
 /Plugins/**/Intermediate/
+/Plugins/EOSIntegrationKit/
 
