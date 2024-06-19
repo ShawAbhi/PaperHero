@@ -1,0 +1,8 @@
+For Debug mode:
+
+keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android 
+
+for Release mode:
+
+keytool -genkey -v -keystore PaperHero.keystore -alias PaperHero -keyalg RSA -keysize 2048 -validity 10000
+Pass: PaperHero
