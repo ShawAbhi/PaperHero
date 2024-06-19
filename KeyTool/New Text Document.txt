@@ -6,3 +6,6 @@ for Release mode:
 
 keytool -genkey -v -keystore PaperHero.keystore -alias PaperHero -keyalg RSA -keysize 2048 -validity 10000
 Pass: PaperHero
+
+Google O Auth client ID
+456240304663-jnsi0ft6tb6tifiob11o565l08kqnoql.apps.googleusercontent.com
