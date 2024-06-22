@@ -7,5 +7,41 @@ for Release mode:
 keytool -genkey -v -keystore PaperHero.keystore -alias PaperHero -keyalg RSA -keysize 2048 -validity 10000
 Pass: PaperHero
 
+Keystore type: PKCS12
+Keystore provider: SUN
+
+Your keystore contains 1 entry
+
+Alias name: paperhero
+Creation date: 20-Jun-2024
+Entry type: PrivateKeyEntry
+Certificate chain length: 1
+Certificate[1]:
+Owner: CN=Abhishek Shaw, OU=ShawStudio, O=ShawStudio, L=Howrah, ST=WestBengal, C=91
+Issuer: CN=Abhishek Shaw, OU=ShawStudio, O=ShawStudio, L=Howrah, ST=WestBengal, C=91
+Serial number: 659f241
+Valid from: Thu Jun 20 00:15:36 IST 2024 until: Mon Nov 06 00:15:36 IST 2051
+Certificate fingerprints:
+         SHA1: 56:F5:31:26:A5:91:6B:27:87:67:59:6C:87:83:00:1C:53:0D:A7:26
+         SHA256: 5B:D2:8E:B8:E8:6A:74:56:2A:98:C3:AE:FF:08:B6:5A:54:41:B9:3C:AC:02:68:26:F0:57:DB:FD:B1:C8:A2:10
+Signature algorithm name: SHA256withRSA
+Subject Public Key Algorithm: 2048-bit RSA key
+Version: 3
+
+Extensions:
+
+#1: ObjectId: 2.5.29.14 Criticality=false
+SubjectKeyIdentifier [
+KeyIdentifier [
+0000: 62 DD 38 A6 6E A6 C2 12   F6 6A 9A 4A CC CD 84 42  b.8.n....j.J...B
+0010: CC 26 32 A6                                        .&2.
+]
+]
+
+
+
+*******************************************
+*******************************************
+
 Google O Auth client ID
 456240304663-jnsi0ft6tb6tifiob11o565l08kqnoql.apps.googleusercontent.com
