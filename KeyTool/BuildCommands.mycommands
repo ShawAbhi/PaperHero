@@ -1,0 +1,68 @@
+--editor
+Engine\Build\BatchFiles\Build.bat -Target="*ProjectName*Editor Win64 Development -Project=*ProjectPath*\*ProjectName*.uproject" -Target=ShaderCompileWorker Win64 Development -Quiet -WaitMutex -FromMsBuild
+
+--editor launch
+*EnginePath*\Engine\Binaries\Win64\UnrealEditor.exe *ProjectPath*\*ProjectName*.uproject -skipcompile
+
+--server
+*EnginePath*\Engine\Build\BatchFiles\Build.bat *ProjectName*Server Win64 Development -Project=*ProjectPath*\*ProjectName*.uproject -WaitMutex -FromMsBuild
+
+--server launch
+*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe *ProjectPath*\*ProjectName*.uproject -skipcompile
+*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe -log -port=7777 -noGSDK
+
+
+--client
+*EnginePath*\Engine\Build\BatchFiles\Build.bat *ProjectName*Client Win64 Development -Project=*ProjectPath*\*ProjectName*.uproject -WaitMutex -FromMsBuild
+
+--launch client
+*ProjectPath*\Binaries\Win64\*ProjectName*Client.exe "*ProjectPath*\*ProjectName*.uproject" -skipcompile
+*ProjectPath*\Binaries\Win64\*ProjectName*Client.exe -windowed -ResX=960 -ResY=720
+
+
+------  Server Only Build
+*EnginePath*\Engine\Build\BatchFiles\Build.bat *ProjectName*Server Win64 Development -Project=*ProjectPath*\*ProjectName*.uproject -WaitMutex -FromMsBuild
+
+------  Server Only Cooks
+*EnginePath*\Engine\Build\BatchFiles\RunUAT.bat BuildCookRun -project=*ProjectPath*\*ProjectName*.uproject -FromMsBuild -cook -noclient -server -serverplatform=Win64  -serverconfig=Development
+
+------ Client Only Cooks
+*EnginePath*\Engine\Build\BatchFiles\RunUAT.bat BuildCookRun -project=*ProjectPath*\*ProjectName*.uproject -FromMsBuild -cook -client -noserver -clientplatform=Win64  -clientconfig=Development
+
+------ Server and Client Cook
+*EnginePath*\Engine\Build\BatchFiles\RunUAT.bat BuildCookRun -project=*ProjectPath*\*ProjectName*.uproject -FromMsBuild -cook -client -server -serverplatform=Win64 -clientplatform=Win64 -serverconfig=Development -clientconfig=Development
+
+------  Server Build and Cook
+*EnginePath*\Engine\Build\BatchFiles\RunUAT.bat BuildCookRun -project=*ProjectPath*\*ProjectName*.uproject -FromMsBuild -nop4 -build -cook  -noclient -server -serverplatform=Win64  -serverconfig=Development
+
+---Server with Options----
+"*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe" *EntryLevelPath*?*LaunchOptions* -port=7777 -log
+
+
+----------- new commands -------------
+
+"*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe" "*EntryLevelPath*?*LaunchOptions* -port=7777 -log>serverlog.txt -noGSDK
+
+"*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe" "*EntryLevelPath*?*LaunchOptions* -port=7777 -log>serverlog.txt -noGSDK
+
+--client
+*EnginePath*\Engine\Build\BatchFiles\Build.bat *ProjectName*Client Win64 Development -Project="*ProjectPath*\*ProjectName*.uproject" -WaitMutex -FromMsBuild
+
+--launch client
+*ProjectPath*\Binaries\Win64\*ProjectName*Client.exe -windowed -resx=640 -resY=640
+
+
+"*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe" *EntryLevelPath*?*LaunchOptions* -port=7777 -log
+
+"*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe" *EntryLevelPath*?*LaunchOptions* -port=7777 -log>serverlog.txt -noGSDK
+
+---------- new build commands --------------
+
+--server
+*EnginePath*\Engine\Build\BatchFiles\Build.bat *ProjectName*Server Win64 Development -Project="*ProjectPath*\*ProjectName*.uproject" -WaitMutex -FromMsBuild
+
+--client
+*EnginePath*\Engine\Build\BatchFiles\Build.bat *ProjectName*Client Win64 Development -Project="*ProjectPath*\*ProjectName*.uproject" -WaitMutex -FromMsBuild
+
+--launch server
+*ProjectPath*\Binaries\Win64\*ProjectName*Server.exe *EntryLevelPath*?*LaunchOptions* -port=7777 -log>serverlog.txt -noGSDK
