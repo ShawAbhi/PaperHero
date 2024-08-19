@@ -464,6 +464,10 @@ void FOnlineSessionEOS::Init(const FString& InBucketId)
 	FCStringAnsi::Strncpy(BucketIdAnsi, TCHAR_TO_UTF8(*InBucketId), EOS_OSS_STRING_BUFFER_LENGTH);
 
 	// Register for session invite notifications
+	FSessionInviteReceivedCallback* SessionInviteReceivedCallbackObj = new FSessionInviteReceivedCallback(FOnlineSessionEOSWeakPtr(AsShared()));
+	SessionInviteReceivedCallbackObj->CallbackLambda = [this](const EOS_Sessions_SessionInviteReceivedCallbackInfo* Data)
+	{
+	};
 	FSessionInviteAcceptedCallback* SessionInviteAcceptedCallbackObj = new FSessionInviteAcceptedCallback(FOnlineSessionEOSWeakPtr(AsShared()));
 	SessionInviteAcceptedCallback = SessionInviteAcceptedCallbackObj;
 	SessionInviteAcceptedCallbackObj->CallbackLambda = [this](const EOS_Sessions_SessionInviteAcceptedCallbackInfo* Data)
@@ -1392,7 +1396,15 @@ uint32 FOnlineSessionEOS::CreateEOSSession(int32 HostingPlayerNum, FNamedOnlineS
 		Session->SessionSettings.bAllowJoinViaPresence ||
 		Session->SessionSettings.bAllowJoinViaPresenceFriendsOnly ||
 		Session->SessionSettings.bAllowInvites) ? EOS_TRUE : EOS_FALSE;
-
+	if(Session->SessionSettings.Get("SANCTIONENABLED", Options.bSanctionsEnabled))
+	{
+		UE_LOG(LogOnline, Log, TEXT("Sanctions Enabled: %s"), Options.bSanctionsEnabled ? TEXT("True") : TEXT("False"));
+	}
+	else
+	{
+		UE_LOG(LogOnline, Log, TEXT("Sanctions Enabled not found, defaulting to false"));
+		Options.bSanctionsEnabled = false;
+	}
 	EOS_EResult ResultCode = EOS_Sessions_CreateSessionModification(EOSSubsystem->SessionsHandle, &Options, &SessionModHandle);
 	if (ResultCode != EOS_EResult::EOS_Success)
 	{
@@ -2893,6 +2905,41 @@ bool FOnlineSessionEOS::SendSessionInviteToFriends(const FUniqueNetId& LocalUser
 	return true;
 }
 
+bool FOnlineSessionEOS::GetConnectStringFromSessionInfoForBeacon(TSharedPtr<FOnlineSessionInfoEOS>& SessionInfo,
+	FString& ConnectInfo, int32 PortOverride)
+{
+	if(!SessionInfo.IsValid() || !SessionInfo->HostAddr.IsValid())
+	{
+		return false;
+	}
+	if (SessionInfo->EOSAddress.Len() > 0)
+	{
+		ConnectInfo = SessionInfo->EOSAddress;
+
+		int32 PortColonIndex;
+		if (ConnectInfo.FindLastChar(TEXT(':'), PortColonIndex))
+		{
+			const FString InfoWithoutPort = ConnectInfo.Mid(0, PortColonIndex);
+			const FString BeaconSession(TEXT("BeaconSession"));
+			const uint8 TypeHashChannelID = GetTypeHash(BeaconSession);
+
+			int32 ChannelColonIndex;
+			if (InfoWithoutPort.FindLastChar(TEXT(':'), ChannelColonIndex))
+			{
+				FString InfoWithoutChannel = InfoWithoutPort.Mid(0, ChannelColonIndex);
+
+				ConnectInfo = FString::Printf(TEXT("%s:%s:%d"), *InfoWithoutChannel, *BeaconSession, TypeHashChannelID);
+				return true;
+			}
+		}
+	}
+	else
+	{
+		ConnectInfo = SessionInfo->HostAddr->ToString(true);
+	}
+	return true;
+}
+
 bool FOnlineSessionEOS::PingSearchResults(const FOnlineSessionSearchResult& SearchResult)
 {
 	return false;
@@ -2933,7 +2980,7 @@ bool FOnlineSessionEOS::GetResolvedConnectString(FName SessionName, FString& Con
 		if (PortType == NAME_BeaconPort)
 		{
 			int32 BeaconListenPort = GetBeaconPortFromSessionSettings(Session->SessionSettings);
-			bSuccess = GetConnectStringFromSessionInfo(SessionInfo, ConnectInfo, BeaconListenPort);
+			bSuccess = GetConnectStringFromSessionInfoForBeacon(SessionInfo, ConnectInfo, BeaconListenPort);
 		}
 		else if (PortType == NAME_GamePort)
 		{
@@ -2965,7 +3012,7 @@ bool FOnlineSessionEOS::GetResolvedConnectString(const FOnlineSessionSearchResul
 		if (PortType == NAME_BeaconPort)
 		{
 			int32 BeaconListenPort = GetBeaconPortFromSessionSettings(SearchResult.Session.SessionSettings);
-			bSuccess = GetConnectStringFromSessionInfo(SessionInfo, ConnectInfo, BeaconListenPort);
+			bSuccess = GetConnectStringFromSessionInfoForBeacon(SessionInfo, ConnectInfo, BeaconListenPort);
 
 		}
 		else if (PortType == NAME_GamePort)
@@ -3129,53 +3176,62 @@ bool FOnlineSessionEOS::RegisterPlayers(FName SessionName, const TArray< FUnique
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
 	{
-		TArray<EOS_ProductUserId> EOSIds;
-		EOSIds.Empty();
-		bSuccess = true;
-		bool bRegisterEOS = !Session->SessionSettings.bUseLobbiesIfAvailable;
-		const FUniqueNetIdRef& PlayerId = Players[0];
-		const FUniqueNetIdEOS& PlayerEOSId = FUniqueNetIdEOS::Cast(*PlayerId);
-		EOSIds.Add(PlayerEOSId.GetProductUserId());
-		if (bRegisterEOS && EOSIds.Num() > 0)
+		if(bIsDedicatedServer || Session->bHosting)
 		{
+			TArray<EOS_ProductUserId> EOSIds;
 			EOSIds.Empty();
+			bSuccess = true;
+			bool bRegisterEOS = !Session->SessionSettings.bUseLobbiesIfAvailable;
+			const FUniqueNetIdRef& PlayerId = Players[0];
+			const FUniqueNetIdEOS& PlayerEOSId = FUniqueNetIdEOS::Cast(*PlayerId);
 			EOSIds.Add(PlayerEOSId.GetProductUserId());
-			EOS_Sessions_RegisterPlayersOptions Options = { };
-			Options.ApiVersion = EOS_SESSIONS_REGISTERPLAYERS_API_LATEST;
-			EOS_ProductUserId SinglePlayerId = PlayerEOSId.GetProductUserId();
-			Options.PlayersToRegister = &SinglePlayerId; 
-			Options.PlayersToRegisterCount = EOSIds.Num();
-			const FTCHARToUTF8 Utf8SessionName(*SessionName.ToString());
-			Options.SessionName = Utf8SessionName.Get();
-
-			FRegisterPlayersCallback* CallbackObj = new FRegisterPlayersCallback(FOnlineSessionEOSWeakPtr(AsShared()));
-			CallbackObj->CallbackLambda = [this, SessionName, RegisteredPlayers = TArray<FUniqueNetIdRef>(Players)](const EOS_Sessions_RegisterPlayersCallbackInfo* Data)
+			if (bRegisterEOS && EOSIds.Num() > 0)
 			{
-				bool bWasSuccessful = Data->ResultCode == EOS_EResult::EOS_Success || Data->ResultCode == EOS_EResult::EOS_NoChange;
-				TriggerOnRegisterPlayersCompleteDelegates(SessionName, RegisteredPlayers, bWasSuccessful);
-			};
-			EOS_Sessions_RegisterPlayers(EOSSubsystem->SessionsHandle, &Options, CallbackObj, CallbackObj->GetCallbackPtr());
-			for(int32 i=0; i<EOSIds.Num(); i++)
-			{
-				char PuidBuffer[256];
-				int32 BufferLen = 256;
-				EOS_ProductUserId_ToString(SinglePlayerId, PuidBuffer, &BufferLen );
+				EOSIds.Empty();
+				EOSIds.Add(PlayerEOSId.GetProductUserId());
+				EOS_Sessions_RegisterPlayersOptions Options;
+				Options.ApiVersion = EOS_SESSIONS_REGISTERPLAYERS_API_LATEST;
+				EOS_ProductUserId SinglePlayerId;
+				SinglePlayerId = PlayerEOSId.GetProductUserId();
+				if(!PlayerEOSId.ToString().Contains(EOS_ID_SEPARATOR))
+				{
+					SinglePlayerId = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*PlayerEOSId.ToString()));
+				}
+				Options.PlayersToRegister = &SinglePlayerId; 
+				Options.PlayersToRegisterCount = EOSIds.Num();
+				const FTCHARToUTF8 Utf8SessionName(*SessionName.ToString());
+				Options.SessionName = Utf8SessionName.Get();
+				FRegisterPlayersCallback* CallbackObj = new FRegisterPlayersCallback(FOnlineSessionEOSWeakPtr(AsShared()));
+				CallbackObj->CallbackLambda = [this, SessionName, RegisteredPlayers = TArray<FUniqueNetIdRef>(Players)](const EOS_Sessions_RegisterPlayersCallbackInfo* Data)
+				{
+					bool bWasSuccessful = Data->ResultCode == EOS_EResult::EOS_Success || Data->ResultCode == EOS_EResult::EOS_NoChange;
+					TriggerOnRegisterPlayersCompleteDelegates(SessionName, RegisteredPlayers, bWasSuccessful);
+				};
+				EOS_Sessions_RegisterPlayers(EOSSubsystem->SessionsHandle, &Options, CallbackObj, CallbackObj->GetCallbackPtr());
+				for(int32 i=0; i<EOSIds.Num(); i++)
+				{
+					char PuidBuffer[256];
+					int32 BufferLen = 256;
+					EOS_ProductUserId_ToString(SinglePlayerId, PuidBuffer, &BufferLen );
+				}
+				return true;
 			}
-			return true;
 		}
-	}
-	else
-	{
-		UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers: No game present to join for session (%s)"), *SessionName.ToString());
-	}
+		else
+		{
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers: Not the owner of the session (%s)"), *SessionName.ToString());
+		}
 
-	EOSSubsystem->ExecuteNextTick([this, SessionName, RegisteredPlayers = TArray<FUniqueNetIdRef>(Players), bSuccess]()
-	{
-		TriggerOnRegisterPlayersCompleteDelegates(SessionName, RegisteredPlayers, bSuccess);
-		UE_LOG_ONLINE_SESSION(Log, TEXT("RegisterPlayers: Triggering completion delegates"));
-	});
+		EOSSubsystem->ExecuteNextTick([this, SessionName, RegisteredPlayers = TArray<FUniqueNetIdRef>(Players), bSuccess]()
+		{
+			TriggerOnRegisterPlayersCompleteDelegates(SessionName, RegisteredPlayers, bSuccess);
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers: Triggering completion delegates for session (%s) with success (%d)"), *SessionName.ToString(), bSuccess);
+		});
 
-	return true;
+		return true;
+	}
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("RegisterPlayers: No game present to join for session (%s)"), *SessionName.ToString());
+	return false;
 }
 
 /*bool FOnlineSessionEOS::RegisterPlayers(FName SessionName, const TArray< FUniqueNetIdRef >& Players, bool bWasInvited)
@@ -3949,9 +4005,12 @@ void FOnlineSessionEOS::SetLobbyAttributes(EOS_HLobbyModification LobbyModificat
 	const FLobbyAttributeOptions SearchLobbiesAttribute(TCHAR_TO_UTF8(*SearchLobbies), true);
 	AddLobbyAttribute(LobbyModificationHandle, &SearchLobbiesAttribute);
 
-	// We set the session's owner id and name
-	const FLobbyAttributeOptions OwnerId("OwningUserId", TCHAR_TO_UTF8(*Session->OwningUserId->ToString()));
-	AddLobbyAttribute(LobbyModificationHandle, &OwnerId);
+	if(Session->OwningUserId.IsValid())
+	{
+		// We set the session's owner id and name
+		const FLobbyAttributeOptions OwnerId("OwningUserId", TCHAR_TO_UTF8(*Session->OwningUserId->ToString()));
+		AddLobbyAttribute(LobbyModificationHandle, &OwnerId);
+	}
 
 	if(TCHAR_TO_UTF8(*Session->OwningUserName) != nullptr && Session->OwningUserName != "")
 	{
@@ -4198,22 +4257,33 @@ uint32 FOnlineSessionEOS::FindLobbySession(int32 SearchingPlayerNum, const TShar
 	EOS_EResult SearchResult = EOS_Lobby_CreateLobbySearch(LobbyHandle, &CreateLobbySearchOptions, &LobbySearchHandle);
 	if (SearchResult == EOS_EResult::EOS_Success)
 	{
-		// We add the search parameters
-		for (FSearchParams::TConstIterator It(SearchSettings->QuerySettings.SearchParams); It; ++It)
+		FString SessionSearchByUser;
+		if(!SearchSettings->QuerySettings.Get("SessionSearchByUser", SessionSearchByUser))
 		{
-			const FName Key = It.Key();
-			const FOnlineSessionSearchParam& SearchParam = It.Value();
-
-			if (!IsSessionSettingTypeSupported(SearchParam.Data.GetType()))
+			// We add the search parameters
+			for (FSearchParams::TConstIterator It(SearchSettings->QuerySettings.SearchParams); It; ++It)
 			{
-				continue;
+				const FName Key = It.Key();
+				const FOnlineSessionSearchParam& SearchParam = It.Value();
+				if (!IsSessionSettingTypeSupported(SearchParam.Data.GetType()))
+				{
+					continue;
+				}
+				
+				UE_LOG_ONLINE_SESSION(VeryVerbose, TEXT("[FOnlineSessionEOS::FindLobbySession] Adding lobby search param named (%s), (%s)"), *Key.ToString(), *SearchParam.ToString());
+
+				FString ParamName(Key.ToString());
+				FLobbyAttributeOptions Attribute(TCHAR_TO_UTF8(*ParamName), SearchParam.Data);
+				AddLobbySearchAttribute(LobbySearchHandle, &Attribute, ToEOSSearchOp(SearchParam.ComparisonOp));
 			}
-
-			UE_LOG_ONLINE_SESSION(VeryVerbose, TEXT("[FOnlineSessionEOS::FindLobbySession] Adding lobby search param named (%s), (%s)"), *Key.ToString(), *SearchParam.ToString());
-
-			FString ParamName(Key.ToString());
-			FLobbyAttributeOptions Attribute(TCHAR_TO_UTF8(*ParamName), SearchParam.Data);
-			AddLobbySearchAttribute(LobbySearchHandle, &Attribute, ToEOSSearchOp(SearchParam.ComparisonOp));
+		}
+		else
+		{
+			EOS_LobbySearch_SetTargetUserIdOptions SetTargetUserIdOptions;
+			SetTargetUserIdOptions.ApiVersion = EOS_LOBBYSEARCH_SETTARGETUSERID_API_LATEST;
+			EOS_ProductUserId TargetUserId = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*SessionSearchByUser));
+			SetTargetUserIdOptions.TargetUserId = TargetUserId;
+			EOS_LobbySearch_SetTargetUserId(LobbySearchHandle, &SetTargetUserIdOptions);
 		}
 
 		StartLobbySearch(SearchingPlayerNum, LobbySearchHandle, SearchSettings, FOnSingleSessionResultCompleteDelegate::CreateLambda([this](int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& EOSResult)

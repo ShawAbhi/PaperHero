@@ -1,7 +1,5 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "EIKCommands.h"
-#include "EIKStyle.h"
 #include "OnlineSubsystemEIKModule.h"
 #include "OnlineSubsystemEOSPrivate.h"
 #include "OnlineSubsystemModule.h"
@@ -22,6 +20,7 @@
 #if WITH_EDITOR
 	#include "ISettingsModule.h"
 	#include "ISettingsSection.h"
+	#include "ToolMenus.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "EIK"
@@ -70,18 +69,7 @@ void FOnlineSubsystemEIKModule::StartupModule()
 	// Have to call this as early as possible in order to hook the rendering device
 	FOnlineSubsystemEOS::ModuleInit();
 #endif
-
-	FEIKStyle::Initialize();
-	FEIKStyle::ReloadTextures();
-
-	FEIKCommands::Register();
 	
-	PluginCommands = MakeShareable(new FUICommandList);
-
-	PluginCommands->MapAction(
-		FEIKCommands::Get().PluginAction,
-		FExecuteAction::CreateRaw(this, &FOnlineSubsystemEIKModule::PluginButtonClicked),
-		FCanExecuteAction());
 
 	//ConfigureOnlineSubsystemEIK();
 #if WITH_EDITOR
@@ -130,10 +118,6 @@ void FOnlineSubsystemEIKModule::ShutdownModule()
 	UToolMenus::UnRegisterStartupCallback(this);
 
 	UToolMenus::UnregisterOwner(this);
-
-	FEIKStyle::Shutdown();
-
-	FEIKCommands::Unregister();
 #endif
 #if WITH_EDITOR
 	FCoreDelegates::OnPostEngineInit.RemoveAll(this);
@@ -198,11 +182,6 @@ void FOnlineSubsystemEIKModule::RegisterMenus()
 	FToolMenuOwnerScoped OwnerScoped(this);
 
 	{
-		UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu.Window");
-		{
-			FToolMenuSection& Section = Menu->FindOrAddSection("WindowLayout");
-			Section.AddMenuEntryWithCommandList(FEIKCommands::Get().PluginAction, PluginCommands);
-		}
 	}
 
 	{
@@ -210,8 +189,6 @@ void FOnlineSubsystemEIKModule::RegisterMenus()
 		{
 			FToolMenuSection& Section = ToolbarMenu->FindOrAddSection("PluginTools");
 			{
-				FToolMenuEntry& Entry = Section.AddEntry(FToolMenuEntry::InitToolBarButton(FEIKCommands::Get().PluginAction));
-				Entry.SetCommandList(PluginCommands);
 			}
 		}
 	}

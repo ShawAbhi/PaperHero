@@ -6,7 +6,7 @@
 #include "Online/OnlineSessionNames.h"
 
 UEIK_FindSessions_AsyncFunction* UEIK_FindSessions_AsyncFunction::FindEIKSessions(
-	TMap<FName, FEIKAttribute> SessionSettings, EMatchType MatchType, int32 MaxResults, ERegionInfo RegionToSearch, bool bLanSearch)
+	TMap<FString, FEIKAttribute> SessionSettings, EMatchType MatchType, int32 MaxResults, ERegionInfo RegionToSearch, bool bLanSearch, bool bIncludePartySessions)
 
 {
 	UEIK_FindSessions_AsyncFunction* Ueik_FindSessionObject= NewObject<UEIK_FindSessions_AsyncFunction>();
@@ -15,6 +15,7 @@ UEIK_FindSessions_AsyncFunction* UEIK_FindSessions_AsyncFunction::FindEIKSession
 	Ueik_FindSessionObject->SessionSettings = SessionSettings;
 	Ueik_FindSessionObject->B_bLanSearch = bLanSearch;
 	Ueik_FindSessionObject->I_MaxResults = MaxResults;
+	Ueik_FindSessionObject->bIncludePartySessions = bIncludePartySessions;
 	return Ueik_FindSessionObject;
 }
 
@@ -26,7 +27,7 @@ void UEIK_FindSessions_AsyncFunction::Activate()
 
 void UEIK_FindSessions_AsyncFunction::FindSession()
 {
-	if(const IOnlineSubsystem *SubsystemRef = IOnlineSubsystem::Get())
+	if(const IOnlineSubsystem *SubsystemRef = IOnlineSubsystem::Get("EIK"))
 	{
 		if(const IOnlineSessionPtr SessionPtrRef = SubsystemRef->GetSessionInterface())
 		{
@@ -43,26 +44,31 @@ void UEIK_FindSessions_AsyncFunction::FindSession()
 			else
 			{
 				SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
+				if(!bIncludePartySessions)
+				{
+					SessionSearch->QuerySettings.Set("IsPartySession", false, EOnlineComparisonOp::Equals);
+				}
 			}
 			if (!SessionSettings.IsEmpty()) {
 				for (auto& Settings_SingleValue : SessionSettings) {
-					if (Settings_SingleValue.Key.IsNone()) {
+					if (Settings_SingleValue.Key.IsEmpty()) {
 						continue;
 					}
 					FOnlineSessionSetting Setting;
 					Setting.AdvertisementType = EOnlineDataAdvertisementType::ViaOnlineService;
 					Setting.Data = Settings_SingleValue.Value.GetVariantData();
+					FName SettingName = FName(*Settings_SingleValue.Key);
 					if(Settings_SingleValue.Value.AttributeType == EEIKAttributeType::String)
 					{
-						SessionSearch->QuerySettings.Set(Settings_SingleValue.Key, Settings_SingleValue.Value.StringValue, EOnlineComparisonOp::Equals);
+						SessionSearch->QuerySettings.Set(SettingName, Settings_SingleValue.Value.StringValue, EOnlineComparisonOp::Equals);
 					}
 					else if(Settings_SingleValue.Value.AttributeType == EEIKAttributeType::Integer)
 					{
-						SessionSearch->QuerySettings.Set(Settings_SingleValue.Key, Settings_SingleValue.Value.IntValue, EOnlineComparisonOp::Equals);
+						SessionSearch->QuerySettings.Set(SettingName, Settings_SingleValue.Value.IntValue, EOnlineComparisonOp::Equals);
 					}
 					else if(Settings_SingleValue.Value.AttributeType == EEIKAttributeType::Bool)
 					{
-						SessionSearch->QuerySettings.Set(Settings_SingleValue.Key, Settings_SingleValue.Value.BoolValue, EOnlineComparisonOp::Equals);
+						SessionSearch->QuerySettings.Set(SettingName, Settings_SingleValue.Value.BoolValue, EOnlineComparisonOp::Equals);
 					}
 				}
 			}
@@ -95,7 +101,6 @@ MarkAsGarbage();
 
 void UEIK_FindSessions_AsyncFunction::OnFindSessionCompleted(bool bWasSuccess)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Find Session Completed"));
 	if(!bWasSuccess)
 	{
 		if(bDelegateCalled)
@@ -126,17 +131,23 @@ void UEIK_FindSessions_AsyncFunction::OnFindSessionCompleted(bool bWasSuccess)
 						TMap<FName, FOnlineSessionSetting>::TIterator It(LocalSessionSettings.Settings);
 
 						TMap<FString, FEIKAttribute> LocalArraySettings;
+						FSessionFindStruct LocalStruct;
 						while (It)
 						{
+							if(It.Key().ToString() == "SessionName")
+							{
+								LocalStruct.SessionName = It.Value().Data.ToString();
+							}
 							const FName& SettingName = It.Key();
 							const FOnlineSessionSetting& Setting = It.Value();
 							LocalArraySettings.Add(*SettingName.ToString(), Setting.Data);
 							++It;
 						}
-
+						if(LocalStruct.SessionName.IsEmpty())
+						{
+							LocalStruct.SessionName = "GameSession";
+						}
 						bool IsServer = LocalArraySettings.Contains("IsDedicatedServer") ? true : false;
-						FSessionFindStruct LocalStruct;
-						LocalStruct.SessionName = "GameSession";
 						LocalStruct.CurrentNumberOfPlayers = (SessionResult.OnlineResult.Session.SessionSettings.NumPublicConnections + SessionResult.OnlineResult.Session.SessionSettings.NumPrivateConnections) - (SessionResult.OnlineResult.Session.NumOpenPublicConnections + SessionResult.OnlineResult.Session.NumOpenPrivateConnections);
 						LocalStruct.MaxNumberOfPlayers = SessionResult.OnlineResult.Session.SessionSettings.NumPublicConnections + SessionResult.OnlineResult.Session.SessionSettings.NumPrivateConnections;
 						LocalStruct.SessionResult = SessionResult;

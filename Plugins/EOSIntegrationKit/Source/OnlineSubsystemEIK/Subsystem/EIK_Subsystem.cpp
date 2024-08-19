@@ -11,10 +11,26 @@
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/SaveGame.h"
+#include "eos_sessions.h"
 #include "Interfaces/OnlineLeaderboardInterface.h"
+#include "OnlineSubsystemEIK/SdkFunctions/ConnectInterface/EIK_ConnectSubsystem.h"
 #ifdef PLAYFAB_PLUGIN_INSTALLED
 #include "Core/PlayFabClientAPI.h"
 #endif
+
+
+
+UEIK_Subsystem::UEIK_Subsystem()
+{
+	// Add the delegate to the online subsystem
+	if(const IOnlineSubsystem *SubsystemRef = IOnlineSubsystem::Get())
+	{
+		if(const IOnlineSessionPtr SessionPtrRef = SubsystemRef->GetSessionInterface())
+		{
+			SessionPtrRef->AddOnSessionUserInviteAcceptedDelegate_Handle(FOnSessionUserInviteAcceptedDelegate::CreateUObject(this, &UEIK_Subsystem::FuncEK_OnSessionUserInviteAccepted));
+		}
+	}
+}
 
 
 void UEIK_Subsystem::Login(int32 LocalUserNum, FString ID, FString Token , FString Type, const FBP_Login_Callback& Result)
@@ -40,51 +56,6 @@ void UEIK_Subsystem::Login(int32 LocalUserNum, FString ID, FString Token , FStri
 	{
 		Result.ExecuteIfBound(false,"Failed to get Subsystem");
 	}
-}
-
-bool UEIK_Subsystem::InitializeEIK()
-{
-	if(const IOnlineSubsystem *SubsystemRef = IOnlineSubsystem::Get())
-	{
-		if(const IOnlineFriendsPtr FriendsPtr = SubsystemRef->GetFriendsInterface())
-		{
-			// Bind the OnSessionUserInviteAccepted event to a delegate
-			OnSessionUserInviteAcceptedDelegate.BindUObject(this, &UEIK_Subsystem::OnSessionUserInviteAccepted);
-			FriendsPtr->OnInviteReceivedDelegates.AddLambda([this](const FUniqueNetId& LocalUserId, const FUniqueNetId& FriendId)
-			{
-				FEIKUniqueNetId LocalUNetID;
-				LocalUNetID.SetUniqueNetId(LocalUserId.AsShared());
-				FEIKUniqueNetId FriendUNetID;
-				FriendUNetID.SetUniqueNetId(FriendId.AsShared());
-				OnInviteRecieved.Broadcast(LocalUNetID,FriendUNetID);
-			});
-			FriendsPtr->OnInviteAcceptedDelegates.AddLambda([this](const FUniqueNetId& LocalUserId, const FUniqueNetId& FriendId)
-			{
-				FEIKUniqueNetId LocalUNetID;
-				LocalUNetID.SetUniqueNetId(LocalUserId.AsShared());
-				FEIKUniqueNetId FriendUNetID;
-				FriendUNetID.SetUniqueNetId(FriendId.AsShared());
-				OnInviteAccepted.Broadcast(LocalUNetID,FriendUNetID);
-			});
-			FriendsPtr->OnInviteReceivedDelegates.AddLambda([this](const FUniqueNetId& LocalUserId, const FUniqueNetId& FriendId)
-			{
-				FEIKUniqueNetId LocalUNetID;
-				LocalUNetID.SetUniqueNetId(LocalUserId.AsShared());
-				FEIKUniqueNetId FriendUNetID;
-				FriendUNetID.SetUniqueNetId(FriendId.AsShared());
-				OnInviteRejected.Broadcast(LocalUNetID,FriendUNetID);
-			});
-			
-			// Add the delegate to the online subsystem
-			IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
-			if (SessionInt.IsValid())
-			{
-				SessionInt->AddOnSessionUserInviteAcceptedDelegate_Handle(OnSessionUserInviteAcceptedDelegate);
-			}
-			return true;
-		}
-	}
-	return false;
 }
 
 /*
@@ -166,15 +137,9 @@ FString UEIK_Subsystem::GetPlayerNickname(const int32 LocalUserNum)
 		{
 			return IdentityPointerRef->GetPlayerNickname(LocalUserNum);
 		}
-		else
-		{
-			return FString();
-		}
-	}
-	else
-	{
 		return FString();
 	}
+	return FString();
 }
 
 /*
@@ -1012,7 +977,6 @@ void UEIK_Subsystem::OnCreateLobbyCompleted(FName SessionName, bool bWasSuccessf
 {
 	if(bWasSuccessful)
 	{
-		FDelegateHandle SessionJoinHandle;
 		if(const IOnlineSubsystem *SubsystemRef = IOnlineSubsystem::Get())
 		{
 			if(const IOnlineSessionPtr SessionPtrRef = SubsystemRef->GetSessionInterface())
@@ -1257,7 +1221,7 @@ void UEIK_Subsystem::OnFriendInviteAcceptedDestroySession(FName Name, bool bArg)
 {
 }
 
-void UEIK_Subsystem::OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId,
+void UEIK_Subsystem::OnSessionUserInviteAccepted12(const bool bWasSuccessful, const int32 ControllerId,
                                                  FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult)
 {
 	if (bWasSuccessful)
@@ -1279,6 +1243,14 @@ void UEIK_Subsystem::OnSessionUserInviteAccepted(const bool bWasSuccessful, cons
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Failed to accept invitation to join session"));
 	} 
+}
+
+void UEIK_Subsystem::FuncEK_OnSessionUserInviteAccepted(bool bArg, int I, TSharedPtr<const FUniqueNetId> UniqueNetId,
+	const FOnlineSessionSearchResult& OnlineSessionSearchResult)
+{
+	FBlueprintSessionResult Result;
+	Result.OnlineResult = OnlineSessionSearchResult;
+	OnSessionUserInviteAccepted.Broadcast(bArg, Result);
 }
 
 //Callback Functions

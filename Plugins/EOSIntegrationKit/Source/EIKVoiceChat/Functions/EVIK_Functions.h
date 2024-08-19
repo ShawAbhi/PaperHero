@@ -28,7 +28,7 @@ public:
 	static void ConnectVoiceChat(const UObject* WorldContextObject, const FEIKResultDelegate& Result);
 
 	// Returns whether the EOS Voice Chat system is connected.
-	UFUNCTION(BlueprintPure, DisplayName = "Is EOS Voice Chat Connected?", Category = "EVIK", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, DisplayName = "Is EOS Voice Chat Connected?", Category = "EOS Integration Kit|Voice Chat", meta = (WorldContext = "WorldContextObject"))
 	static bool IsVoiceChatConnected(const UObject* WorldContextObject);
 
     // Logs the player into the EOS Voice Chat system.
@@ -40,11 +40,11 @@ public:
 	static void LogoutEOSVoiceChat(const UObject* WorldContextObject, FString PlayerName, const FEIKResultDelegate& Result);
 
 	// Returns whether the EOS Voice Chat system is currently logging-in.
-	UFUNCTION(BlueprintPure, DisplayName = "Is EOS Voice Chat Logging-In?", Category = "EVIK", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, DisplayName = "Is EOS Voice Chat Logging-In?", Category = "EOS Integration Kit|Voice Chat", meta = (WorldContext = "WorldContextObject"))
 	static bool IsEOSVoiceChatLoggingIn(const UObject* WorldContextObject);
 
 	// Returns whether the EOS Voice Chat system is logged-in.
-	UFUNCTION(BlueprintPure, DisplayName = "Is EOS Voice Chat Logged-In?", Category = "EVIK", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, DisplayName = "Is EOS Voice Chat Logged-In?", Category = "EOS Integration Kit|Voice Chat", meta = (WorldContext = "WorldContextObject"))
 	static bool IsEOSVoiceChatLoggedIn(const UObject* WorldContextObject);
 
     // Gets the logged-in user's name for the EOS Voice Chat system.
@@ -82,7 +82,7 @@ public:
 	UFUNCTION(BlueprintCallable, DisplayName="Set EOS Voice Player Volume", Category="EOS Integration Kit|Voice Chat", meta=(WorldContext="WorldContextObject"))
 	static bool SetPlayerVolume(const UObject* WorldContextObject, const FString& PlayerName, float NewVolume);
 
-	    // Checks if the specified player is muted in EOS Voice Chat.
+	// Checks if the specified player is muted in EOS Voice Chat.
     UFUNCTION(BlueprintPure, DisplayName="Is EOS Voice Player Muted", Category="EOS Integration Kit|Voice Chat", meta=(WorldContext="WorldContextObject"))
     static bool IsPlayerMuted(const UObject* WorldContextObject, const FString& PlayerName);
 
@@ -118,5 +118,11 @@ public:
     UFUNCTION(BlueprintCallable, DisplayName="Set EOS Voice Input Method", Category="EOS Integration Kit|Voice Chat", meta=(WorldContext="WorldContextObject"))
     static bool SetInputMethods(const UObject* WorldContextObject, FString MethodID);
 
-	
+	// Checks if specified player is talking
+	UFUNCTION(BlueprintPure, DisplayName = "Is EOS Player Talking", Category = "EOS Integration Kit|Voice Chat", meta = (WorldContext = "WorldContextObject"))
+	static bool IsPlayerTalking(const UObject* WorldContextObject, FString PlayerName);
+
+	// Mutes or unmutes local input device, returnes true if success
+	UFUNCTION(BlueprintCallable, DisplayName = "Set Is EOS Voice Input Method Muted", Category = "EOS Integration Kit|Voice Chat", meta = (WorldContext = "WorldContextObject"))
+	static void MuteInputDevice(const UObject* WorldContextObject, bool Mute, bool& bWasSuccess);
 };

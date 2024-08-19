@@ -28,7 +28,6 @@ public class EOSIntegrationKit : ModuleRules
 				"SlateCore",
 			}
 		);
-		
 		if (Target.bBuildEditor)
 		{
 			PrivateDependencyModuleNames.AddRange(

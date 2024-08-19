@@ -15,7 +15,7 @@ void UEIK_CreateSession_AsyncFunction::Activate()
 
 void UEIK_CreateSession_AsyncFunction::CreateSession()
 {
-	if(IOnlineSubsystem *SubsystemRef = Online::GetSubsystem(this->GetWorld()))
+	if(IOnlineSubsystem *SubsystemRef = Online::GetSubsystem(this->GetWorld(), "EIK"))
 	{
 		if(IOnlineSessionPtr SessionPtrRef = SubsystemRef->GetSessionInterface())
 		{
@@ -39,7 +39,24 @@ void UEIK_CreateSession_AsyncFunction::CreateSession()
 			SessionCreationInfo.bUseLobbiesVoiceChatIfAvailable = false;
 			SessionCreationInfo.bShouldAdvertise = ExtraSettings.bShouldAdvertise;
 			SessionCreationInfo.bAllowJoinInProgress = ExtraSettings.bAllowJoinInProgress;
-			
+			{
+				FOnlineSessionSetting LocalVNameSetting;
+				LocalVNameSetting.AdvertisementType = EOnlineDataAdvertisementType::ViaOnlineService;
+				LocalVNameSetting.Data = *VSessionName.ToString();
+				SessionCreationInfo.Set(FName(TEXT("SessionName")), LocalVNameSetting);
+			}
+			{
+				FOnlineSessionSetting LocalbEnforceSanctions;
+				LocalbEnforceSanctions.AdvertisementType = EOnlineDataAdvertisementType::ViaOnlineService;
+				LocalbEnforceSanctions.Data = ExtraSettings.bEnforceSanctions;
+				SessionCreationInfo.Set(FName(TEXT("SANCTIONENABLED")), LocalbEnforceSanctions);
+			}
+			{
+				FOnlineSessionSetting bPartySession;
+				bPartySession.AdvertisementType = EOnlineDataAdvertisementType::ViaOnlineService;
+				bPartySession.Data = false;
+				SessionCreationInfo.Set(FName(TEXT("IsPartySession")), bPartySession);
+			}
 			SessionCreationInfo.Settings.Add( FName(TEXT("REGIONINFO")), FOnlineSessionSetting(UEnum::GetValueAsString(ExtraSettings.Region), EOnlineDataAdvertisementType::ViaOnlineService));
 			if(DedicatedServerSettings.bIsDedicatedServer)
 			{

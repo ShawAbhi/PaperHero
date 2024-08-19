@@ -47,16 +47,16 @@ public:
 	UFUNCTION(BlueprintCallable, DisplayName="Join EIK Session",meta = (BlueprintInternalUseOnly = "true",  WorldContext = "WorldContextObject"), Category="EOS Integration Kit || Sessions")
 	static UEIK_JoinSession_AsyncFunction* JoinEIKSessions(UObject* WorldContextObject,
 		FName SessionName = "GameSession",
-		FSessionFindStruct SessionToJoin = FSessionFindStruct());
+		FSessionFindStruct SessionToJoin = FSessionFindStruct(),
+		bool bLanSession = false);
 
 	FSessionFindStruct Var_SessionToJoin;
+	
 	UPROPERTY()
 	UObject* Var_WorldContextObject;
 
 
 	void Activate() override;
-
 	void JoinSession();
-
 	void OnJoinSessionCompleted(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 };

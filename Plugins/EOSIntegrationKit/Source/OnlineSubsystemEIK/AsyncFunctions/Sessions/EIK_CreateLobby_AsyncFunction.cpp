@@ -3,6 +3,9 @@
 
 #include "EIK_CreateLobby_AsyncFunction.h"
 #include "OnlineSubsystemEIK/Subsystem/EIK_Subsystem.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSessionSettings.h"
+#include "OnlineSubsystemUtils.h"
 #include "Online/OnlineSessionNames.h"
 
 void UEIK_CreateLobby_AsyncFunction::Activate()
@@ -13,7 +16,7 @@ void UEIK_CreateLobby_AsyncFunction::Activate()
 
 void UEIK_CreateLobby_AsyncFunction::CreateLobby()
 {
-	if(const IOnlineSubsystem *SubsystemRef = Online::GetSubsystem(this->GetWorld()))
+	if(const IOnlineSubsystem *SubsystemRef = Online::GetSubsystem(this->GetWorld(), "EIK"))
 	{
 		if(const IOnlineSessionPtr SessionPtrRef = SubsystemRef->GetSessionInterface())
 		{
@@ -32,7 +35,18 @@ void UEIK_CreateLobby_AsyncFunction::CreateLobby()
 			SessionCreationInfo.bAllowJoinInProgress = Var_CreateLobbySettings.bAllowJoinInProgress;
 			SessionCreationInfo.SessionIdOverride = Var_CreateLobbySettings.LobbyIDOverride;
 			SessionCreationInfo.Set(SETTING_HOST_MIGRATION, Var_CreateLobbySettings.bSupportHostMigration, EOnlineDataAdvertisementType::ViaOnlineService);
-			//SessionCreationInfo.Set(SEARCH_KEYWORDS, VSessionName, EOnlineDataAdvertisementType::ViaOnlineService);
+			{
+				FOnlineSessionSetting LocalVNameSetting;
+				LocalVNameSetting.AdvertisementType = EOnlineDataAdvertisementType::ViaOnlineService;
+				LocalVNameSetting.Data = *VSessionName.ToString();
+				SessionCreationInfo.Set(FName(TEXT("SessionName")), LocalVNameSetting);
+			}
+			{
+				FOnlineSessionSetting bPartySession;
+				bPartySession.AdvertisementType = EOnlineDataAdvertisementType::ViaOnlineService;
+				bPartySession.Data = false;
+				SessionCreationInfo.Set(FName(TEXT("IsPartySession")), bPartySession);
+			}
 			for (auto& Settings_SingleValue : SessionSettings)
 			{
 				if (Settings_SingleValue.Key.Len() == 0)
@@ -54,7 +68,7 @@ void UEIK_CreateLobby_AsyncFunction::CreateLobby()
 				UE_LOG(LogOnline, Warning, TEXT("EIK: SessionPtrRef is null"));
 				OnFail.Broadcast("");
 				SetReadyToDestroy();
-MarkAsGarbage();
+				MarkAsGarbage();
 				bDelegateCalled = true;
 			}
 		}
@@ -66,7 +80,7 @@ MarkAsGarbage();
 			UE_LOG(LogOnline, Warning, TEXT("EIK: SubsystemRef is null"));
 			OnFail.Broadcast("");
 			SetReadyToDestroy();
-MarkAsGarbage();
+			MarkAsGarbage();
 			bDelegateCalled = true;
 		}
 	}
@@ -84,7 +98,7 @@ void UEIK_CreateLobby_AsyncFunction::OnCreateLobbyCompleted(FName SessionName, b
 				OnSuccess.Broadcast(CurrentSession->SessionInfo.Get()->GetSessionId().ToString());
 				bDelegateCalled = true;
 				SetReadyToDestroy();
-MarkAsGarbage();
+				MarkAsGarbage();
 			}
 			else
 			{

@@ -7,6 +7,7 @@
 #include "Interfaces/OnlineExternalUIInterface.h"
 #include "Interfaces/OnlineFriendsInterface.h"
 #include "Interfaces/OnlinePresenceInterface.h"
+#include "OnlineSubsystemEIK/SdkFunctions/EIK_SharedFunctionFile.h"
 
 
 #if WITH_EOS_SDK
@@ -262,24 +263,31 @@ public:
 
 	void Init();
 	void Shutdown();
-
+	void Tick(float DeltaTime);
+	virtual bool AutoLogin(int32 LocalUserNum) override;
+	void LaunchDevTool();
+	virtual bool AutoLoginUsingSettings(int32 LocalUserNum);
+	virtual bool AutoLoginWithFallback(int32 LocalUserNum);
+	bool bAutoLoginAttempted = false;
+	bool bAutoLoginInProgress = false;
 
 	
 
-	//Custom Function
-	void LoginWithDeviceID(const FOnlineAccountCredentials& AccountCredentials);
+	//Custom Functions
 	void CreateDeviceID(const FOnlineAccountCredentials& AccountCredentials);
 	void CreateConnectID(EOS_ContinuanceToken ContinuanceToken, const FOnlineAccountCredentials& AccountCredentials);
 	void DeleteDeviceID(const FOnlineAccountCredentials& AccountCredentials);
 	void CompleteDeviceIDLogin(int32 LocalUserNum, EOS_EpicAccountId AccountId, EOS_ProductUserId UserId);
-	void EIK_Auto_Login();
 	void OpenIDLogin(const FOnlineAccountCredentials& AccountCredentials);
-	void StartConnectInterfaceLogin(const FOnlineAccountCredentials& AccountCredentials);
 
 // IOnlineIdentity Interface
 	virtual bool Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials) override;
+	void LoginViaAuthInterface(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials);
+	static void EOS_CALL LoginViaConnectInterfaceCallback(const EOS_Connect_LoginCallbackInfo* Data);
+	void LoginViaConnectInterface(const FOnlineAccountCredentials& AccountCredentials);
+	static EEIK_EExternalCredentialType GetExternalCredentialType(const FString& Type);
+	static EEIK_ELoginCredentialType GetLoginCredentialType(const FString& Type);
 	virtual bool Logout(int32 LocalUserNum) override;
-	virtual bool AutoLogin(int32 LocalUserNum) override;
 	virtual TSharedPtr<FUserOnlineAccount> GetUserAccount(const FUniqueNetId& UserId) const override;
 	virtual TArray<TSharedPtr<FUserOnlineAccount>> GetAllUserAccounts() const override;
 	virtual FUniqueNetIdPtr GetUniquePlayerId(int32 LocalUserNum) const override;
@@ -304,10 +312,7 @@ public:
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
 	void GetUserPrivilege(const FUniqueNetId& LocalUserId, EUserPrivileges::Type Privilege,
 	                      const FOnGetUserPrivilegeCompleteDelegate& Delegate,
-	                      EShowPrivilegeResolveUI ShowResolveUI) override
-	{
-		//Delegate.ExecuteIfBound(LocalUserId, Privilege, EPrivilegeResults::NoFailures);
-	}
+	                      EShowPrivilegeResolveUI ShowResolveUI) override;
 #endif
 // IOnlineExternalUI Interface
 	virtual bool ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, bool bShowSkipButton, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate()) override;
@@ -409,6 +414,7 @@ public:
 	void LoginStatusChanged(const EOS_Auth_LoginStatusChangedCallbackInfo* Data);
 
 	int32 GetDefaultLocalUser() const { return DefaultLocalUser; }
+	void GetPlatformAuthToken(int32 LocalUserNum, const FOnGetLinkedAccountAuthTokenCompleteDelegate& Delegate) const;
 
 private:
 	void RemoveLocalUser(int32 LocalUserNum);
@@ -428,7 +434,6 @@ private:
 	void UpdateFriendPresence(const FString& FriendId, FOnlineUserPresenceRef Presence);
 
 	IOnlineSubsystem* GetPlatformOSS() const;
-	void GetPlatformAuthToken(int32 LocalUserNum, const FOnGetLinkedAccountAuthTokenCompleteDelegate& Delegate) const;
 	FString GetPlatformDisplayName(int32 LocalUserNum) const;
 
 	/** Cached pointer to owning subsystem */

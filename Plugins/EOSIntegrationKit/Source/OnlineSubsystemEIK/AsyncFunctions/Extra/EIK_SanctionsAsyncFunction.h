@@ -3,34 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "eos_sanctions.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
+#include "OnlineSubsystemEIK/SdkFunctions/EIK_SharedFunctionFile.h"
 #include "EIK_SanctionsAsyncFunction.generated.h"
 
-USTRUCT(BlueprintType)
-struct FSanctionsStruct
-{
-	GENERATED_BODY()
-public:
-	/** API Version: This will be set to EOS_SANCTIONS_PLAYERSANCTION_API_LATEST. */
-	UPROPERTY(BlueprintReadOnly, Category = "EOS Integration Kit | Sanctions")
-	int32 ApiVersion = EOS_SANCTIONS_PLAYERSANCTION_API_LATEST;
-	/** The POSIX timestamp when the sanction was placed */
-	UPROPERTY(BlueprintReadOnly, Category = "EOS Integration Kit | Sanctions")
-	int64 TimePlaced = 0;
-	/** The action associated with this sanction */
-	UPROPERTY(BlueprintReadOnly, Category = "EOS Integration Kit | Sanctions")
-	FString Action = "";
-	/** The POSIX timestamp when the sanction will expire. If the sanction is permanent, this will be 0. */
-	UPROPERTY(BlueprintReadOnly, Category = "EOS Integration Kit | Sanctions")
-	int64 TimeExpires = 0;
-	/** A unique identifier for this specific sanction */
-	UPROPERTY(BlueprintReadOnly, Category = "EOS Integration Kit | Sanctions")
-	FString ReferenceId = "";
-	
-};
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSanctionsDelegate, const TArray<FSanctionsStruct>&, Sanctions);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSanctionsDelegate, const TArray<FEIK_Sanctions_PlayerSanction>&, Sanctions);
 
 UCLASS()
 class ONLINESUBSYSTEMEIK_API UEIK_SanctionsAsyncFunction : public UBlueprintAsyncActionBase
@@ -38,7 +16,7 @@ class ONLINESUBSYSTEMEIK_API UEIK_SanctionsAsyncFunction : public UBlueprintAsyn
 	GENERATED_BODY()
 
 public:
-		/*
+	/*
 	This C++ method gets the logged in user's achievements from the EOS backend.
 	Documentation link: https://betide-studio.gitbook.io/eos-integration-kit/authentication/
 	*/
